@@ -67,9 +67,11 @@ export function AuthScreen() {
     <div className="min-h-screen flex flex-col md:flex-row bg-background/60 backdrop-blur-[2px] relative overflow-hidden">
       {/* Toggle de tema (claro/escuro) */}
       <div className="absolute top-4 right-4 z-30"><ThemeToggle /></div>
-      {/* LADO ESQUERDO: HERO (desktop) */}
-      <div className="hidden md:flex md:w-1/2 relative items-center justify-center p-12 overflow-hidden">
-        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* LADO ESQUERDO: HERO (desktop) — sem overflow-hidden: o brilho do
+          canto superior direito atravessa a divisão e desvanece naturalmente
+          em vez de ser cortado em um degrau vertical */}
+      <div className="hidden md:flex md:w-1/2 relative items-center justify-center p-12">
+        <div aria-hidden className="pointer-events-none absolute inset-0">
           <div className="absolute -top-20 -right-20 h-96 w-96 rounded-full bg-primary/18 blur-3xl blob-1" />
           <div className="absolute bottom-0 -left-20 h-80 w-80 rounded-full bg-secondary/35 blur-3xl blob-2" />
           <div className="absolute top-1/2 left-1/3 h-64 w-64 rounded-full bg-accent/18 blur-3xl blob-3" />
@@ -117,6 +119,19 @@ export function AuthScreen() {
             ))}
           </div>
         </motion.div>
+      </div>
+
+      {/* Transição suave entre o hero e o formulário (desktop) — véu integral
+          (100% da altura), largo e com transparência progressiva em camadas:
+          começa transparente no fim do hero e desaparece dentro do form,
+          sem faixa sólida, linha vertical ou halo central */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 left-1/2 z-[5] hidden w-[26rem] -translate-x-1/2 md:block"
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background/20 dark:via-background/15 to-transparent blur-2xl" />
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-primary/9 to-transparent blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-l from-secondary/7 via-secondary/5 to-transparent blur-3xl" />
       </div>
 
       {/* LADO DIREITO: FORM */}
