@@ -122,10 +122,11 @@ export function AuthScreen() {
       {/* Transição suave entre o hero e o formulário (desktop) */}
       <div
         aria-hidden="true"
-        className="login-transition-glow pointer-events-none absolute inset-y-0 left-1/2 z-20 hidden w-44 -translate-x-1/2 md:block"
+        className="pointer-events-none absolute inset-y-0 left-1/2 z-20 hidden w-80 -translate-x-1/2 md:block"
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent blur-2xl" />
-        <div className="absolute left-1/2 top-1/2 h-72 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-secondary/20 blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background/25 to-transparent blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-2/3 bg-gradient-to-r from-transparent via-secondary/15 to-transparent blur-3xl" />
+        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-r from-transparent via-primary/10 to-transparent blur-3xl" />
       </div>
 
       {/* LADO DIREITO: FORM */}
