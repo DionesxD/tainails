@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { loadEnvConfig } from '@next/env'
+import nextEnv from '@next/env'
+const { loadEnvConfig } = nextEnv
 import { PrismaClient } from '@prisma/client'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -157,3 +158,4 @@ try {
 } finally {
   await db.$disconnect()
 }
+
