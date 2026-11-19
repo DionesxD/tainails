@@ -124,54 +124,11 @@ async function main() {
     }
   }
 
-  // Cria um agendamento de demonstração para que a cliente apareça
-  // na carteira da manicure desde o primeiro seed.
-  await seedAgendamentos(manicure.id, cliente.id)
-
   console.log('✅ Seed completo!')
   console.log('   Manicure:', manicure.email)
   console.log('   Cliente:', cliente.email)
   console.log('   Cliente confiança:', clienteConfianca.email)
   console.log('   Senha: 123456')
-}
-
-
-async function seedAgendamentos(manicureId: string, clienteId: string) {
-  const existente = await db.agendamento.findFirst({
-    where: { clienteId, manicureId },
-    select: { id: true },
-  })
-  if (existente) return
-
-  const servico = await db.servico.findFirst({ where: { manicureId } })
-  if (!servico) return
-
-  const hoje = new Date()
-  const amanha = new Date(hoje)
-  amanha.setDate(amanha.getDate() + 1)
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  const data = `${amanha.getFullYear()}-${pad(amanha.getMonth() + 1)}-${pad(amanha.getDate())}`
-
-  const horario = await db.horarioDisponivel.findFirst({
-    where: { manicureId, data, status: 'livre' },
-  })
-  if (!horario) return
-
-  await db.$transaction([
-    db.agendamento.create({
-      data: {
-        clienteId,
-        manicureId,
-        horarioId: horario.id,
-        servicoId: servico.id,
-        status: 'confirmado',
-      },
-    }),
-    db.horarioDisponivel.update({
-      where: { id: horario.id },
-      data: { status: 'reservado' },
-    }),
-  ])
 }
 
 main()
