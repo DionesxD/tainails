@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AvatarBubble } from '@/components/avatar-bubble'
-import { KeyRound, Star } from 'lucide-react'
+import { KeyRound, Search, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -18,12 +18,14 @@ interface Cliente {
   telefone: string | null
   email: string | null
   eClienteConfianca: boolean
+  jaAgendou: boolean
 }
 
 export function AdminTrustedClients() {
   const qc = useQueryClient()
   const [clienteSenha, setClienteSenha] = useState<Cliente | null>(null)
   const [novaSenha, setNovaSenha] = useState('')
+  const [busca, setBusca] = useState('')
 
   const { data: clientes, isLoading } = useQuery<Cliente[]>({
     queryKey: ['clientes'],
@@ -33,6 +35,19 @@ export function AdminTrustedClients() {
       return j.clientes ?? []
     },
   })
+
+  const filtradas = useMemo(() => {
+    const termo = busca.trim().toLocaleLowerCase('pt-BR')
+    if (!termo) return clientes ?? []
+    return (clientes ?? []).filter((c) =>
+      c.nome.toLocaleLowerCase('pt-BR').includes(termo) ||
+      (c.telefone ?? '').includes(termo) ||
+      (c.email ?? '').toLocaleLowerCase('pt-BR').includes(termo)
+    )
+  }, [clientes, busca])
+
+  const total = clientes?.length ?? 0
+  const semAgendamento = (clientes ?? []).filter((c) => !c.jaAgendou).length
 
   const toggleConfianca = useMutation({
     mutationFn: async ({ id, valor }: { id: string; valor: boolean }) => {
@@ -74,24 +89,39 @@ export function AdminTrustedClients() {
   return (
     <div className="p-4 space-y-5">
       <div>
-        <h1 className="text-xl font-serif font-bold">Clientes de confiança</h1>
-        <p className="text-sm text-muted-foreground">Estas clientes pulam a etapa de sinal</p>
+        <h1 className="text-xl font-serif font-bold">Clientes</h1>
+        <p className="text-sm text-muted-foreground">
+          Todas as clientes cadastradas
+          {total > 0 && <> — {total} no total{semAgendamento > 0 && <> · {semAgendamento} sem 1º agendamento</>}</>}
+        </p>
       </div>
+
+      {total > 4 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, telefone ou e-mail..." className="pl-9" />
+        </div>
+      )}
 
       {isLoading ? (
         <div className="h-20 w-full rounded-2xl shimmer" />
-      ) : !clientes || clientes.length === 0 ? (
+      ) : filtradas.length === 0 ? (
         <Card className="bg-card/50 border-dashed">
-          <CardContent className="p-8 text-center text-sm text-muted-foreground">Nenhuma cliente cadastrada ainda.</CardContent>
+          <CardContent className="p-8 text-center text-sm text-muted-foreground">
+            {busca ? 'Nenhuma cliente encontrada para esta busca.' : 'Nenhuma cliente cadastrada ainda.'}
+          </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
-          {clientes.map((c) => (
+          {filtradas.map((c) => (
             <Card key={c.id} className={cn('bg-card border-border', c.eClienteConfianca && 'border-primary/30')}>
               <CardContent className="p-3 flex items-center gap-2">
                 <AvatarBubble nome={c.nome} size="md" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{c.nome}</p>
+                  <p className="font-medium truncate flex items-center gap-1.5">
+                    <span className="truncate">{c.nome}</span>
+                    {!c.jaAgendou && <span className="shrink-0 rounded-full border border-border bg-muted/60 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">1º pendente</span>}
+                  </p>
                   <p className="text-xs text-muted-foreground truncate">{c.telefone || c.email || '—'}</p>
                 </div>
                 <Button
