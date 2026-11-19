@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, hashPassword } from '@/lib/auth'
 
-// Manicure redefine a senha de um CLIENTE DELA (esqueci a senha do cliente).
-// Nunca permite alterar senha de outra manicure ou de cliente alheio.
+// A manicure do studio pode redefinir a senha de qualquer cliente cadastrada,
+// inclusive antes do primeiro agendamento.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser()
   if (!user || user.tipo !== 'manicure') {
@@ -27,15 +27,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const alvo = await db.usuario.findUnique({ where: { id } })
     if (!alvo || alvo.tipo !== 'cliente') {
       return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 404 })
-    }
-
-    // Só pode redefinir a senha de quem agendou com ela
-    const relacao = await db.agendamento.findFirst({
-      where: { clienteId: alvo.id, manicureId: user.id },
-      select: { id: true },
-    })
-    if (!relacao) {
-      return NextResponse.json({ error: 'Este cliente nunca agendou com você' }, { status: 403 })
     }
 
     const senhaHash = await hashPassword(novaSenha)
