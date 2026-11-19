@@ -1,0 +1,220 @@
+// ============================================================
+// Schema PostgreSQL — Plataforma de agendamento Tainails (Supabase)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id                  String   @id @default(cuid())
+  nome                String
+  telefone            String?  @unique
+  email               String?  @unique
+  senhaHash           String
+  tipo                String   @default("cliente")
+  fotoUrl             String?
+  eClienteConfianca   Boolean  @default(false)
+  ativo               Boolean  @default(true)
+  criadoEm            DateTime @default(now())
+  atualizadoEm        DateTime @updatedAt
+
+  servicosManicure    Servico[]
+  horariosManicure    HorarioDisponivel[]
+  galeriaManicure     GaleriaModelo[]
+  notasComoCliente    NotaCliente[]      @relation("NotasClienteCliente")
+  notasComoManicure   NotaCliente[]      @relation("NotasClienteManicure")
+  configuracoes       ConfiguracoesNegocio[]
+  agendamentosCliente     Agendamento[]  @relation("AgendamentosCliente")
+  agendamentosManicure    Agendamento[]  @relation("AgendamentosManicure")
+  transacoesManicure      TransacaoCaixa[]
+  historicoCliente        HistoricoAtendimento[] @relation("HistoricoCliente")
+  historicoManicure       HistoricoAtendimento[] @relation("HistoricoManicure")
+  notificacoes            Notificacao[]
+
+  @@index([tipo])
+  @@index([eClienteConfianca])
+}
+
+model NotaCliente {
+  id          String   @id @default(cuid())
+  clienteId   String
+  manicureId  String
+  observacao  String
+  criadoEm    DateTime @default(now())
+
+  cliente     Usuario  @relation("NotasClienteCliente", fields: [clienteId], references: [id], onDelete: Cascade)
+  manicure    Usuario  @relation("NotasClienteManicure", fields: [manicureId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
+}
+
+model Servico {
+  id              String   @id @default(cuid())
+  manicureId      String
+  nome            String
+  descricao       String?
+  preco           Float
+  duracaoMinutos  Int
+  ativo           Boolean  @default(true)
+  criadoEm        DateTime @default(now())
+
+  manicure        Usuario  @relation(fields: [manicureId], references: [id], onDelete: Cascade)
+  agendamentos    Agendamento[]
+
+  @@index([manicureId])
+}
+
+model HorarioDisponivel {
+  id           String   @id @default(cuid())
+  manicureId   String
+  data         String
+  horaInicio   String
+  horaFim      String
+  status       String   @default("livre")
+  criadoEm     DateTime @default(now())
+
+  manicure     Usuario  @relation(fields: [manicureId], references: [id], onDelete: Cascade)
+  agendamentos Agendamento[]
+
+  @@unique([manicureId, data, horaInicio])
+  @@index([manicureId, data])
+  @@index([status])
+}
+
+model GaleriaModelo {
+  id          String   @id @default(cuid())
+  manicureId  String
+  urlImagem   String
+  descricao   String?
+  tags        String?
+  ativo       Boolean  @default(true)
+  criadoEm    DateTime @default(now())
+
+  manicure    Usuario  @relation(fields: [manicureId], references: [id], onDelete: Cascade)
+
+  @@index([manicureId])
+}
+
+model CorEsmalte {
+  id         String   @id @default(cuid())
+  nome       String
+  hex        String
+  categoria  String?
+  ativo      Boolean  @default(true)
+
+  agendamentos Agendamento[]
+}
+
+model Agendamento {
+  id                        String   @id @default(cuid())
+  clienteId                 String
+  manicureId                String
+  horarioId                 String
+  servicoId                 String
+  corEsmalteId              String?
+  status                    String   @default("aguardando_sinal")
+  confirmadoAutomaticamente Boolean  @default(false)
+  motivoRecusa              String?
+  observacoesCliente        String?
+  valorSinal                Float?
+  sinalExpiraEm             DateTime?
+  criadoEm                  DateTime @default(now())
+  atualizadoEm              DateTime @updatedAt
+
+  cliente     Usuario             @relation("AgendamentosCliente", fields: [clienteId], references: [id])
+  manicure    Usuario             @relation("AgendamentosManicure", fields: [manicureId], references: [id])
+  horario     HorarioDisponivel   @relation(fields: [horarioId], references: [id])
+  servico     Servico             @relation(fields: [servicoId], references: [id])
+  corEsmalte  CorEsmalte?         @relation(fields: [corEsmalteId], references: [id])
+  comprovante ComprovanteSinal?
+  historicos  HistoricoAtendimento[]
+  transacoes  TransacaoCaixa[]
+  notificacoes Notificacao[]
+
+  @@index([clienteId])
+  @@index([horarioId])
+  @@index([manicureId, status])
+}
+
+model ComprovanteSinal {
+  id              String   @id @default(cuid())
+  agendamentoId   String   @unique
+  urlComprovante  String
+  status          String   @default("pendente")
+  motivoRejeicao  String?
+  enviadoEm       DateTime @default(now())
+  avaliadoEm      DateTime?
+
+  agendamento     Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+}
+
+model ConfiguracoesNegocio {
+  id                      String   @id @default(cuid())
+  manicureId              String   @unique
+  exigeSinal              Boolean  @default(true)
+  percentualSinal         Float    @default(50.0)
+  prazoEnvioSinalHoras    Int      @default(4)
+  chavePix                String?
+  politicaCancelamentoHoras Int    @default(4)
+  regrasAdicionais        Json?
+  atualizadoEm            DateTime @updatedAt
+
+  manicure                Usuario  @relation(fields: [manicureId], references: [id], onDelete: Cascade)
+}
+
+model HistoricoAtendimento {
+  id              String   @id @default(cuid())
+  clienteId       String
+  manicureId      String
+  agendamentoId   String?
+  dataAtendimento String
+  servicoNome     String
+  corUsada        String?
+  valorPago       Float?
+  observacoes     String?
+  criadoEm        DateTime @default(now())
+
+  cliente       Usuario?     @relation("HistoricoCliente", fields: [clienteId], references: [id])
+  manicure      Usuario?     @relation("HistoricoManicure", fields: [manicureId], references: [id])
+  agendamento   Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+
+  @@index([clienteId, dataAtendimento])
+  @@index([manicureId, dataAtendimento])
+}
+
+model TransacaoCaixa {
+  id            String   @id @default(cuid())
+  manicureId    String
+  agendamentoId String?
+  valor         Float
+  formaPagamento String
+  data          String
+  observacao    String?
+  criadoEm      DateTime @default(now())
+
+  manicure     Usuario?     @relation(fields: [manicureId], references: [id], onDelete: Cascade)
+  agendamento  Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+
+  @@index([manicureId, data])
+}
+
+model Notificacao {
+  id            String   @id @default(cuid())
+  usuarioId     String
+  agendamentoId String?
+  tipo          String
+  mensagem      String
+  lida          Boolean  @default(false)
+  enviadaEm     DateTime @default(now())
+
+  usuario      Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  agendamento  Agendamento?  @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId, lida])
+}
