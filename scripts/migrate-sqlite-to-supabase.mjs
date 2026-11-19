@@ -113,6 +113,24 @@ for (const receipt of rows.ComprovanteSinal) {
   }
 }
 
+const booleanFields = {
+  CorEsmalte: ['ativo'],
+  Usuario: ['eClienteConfianca', 'ativo'],
+  Servico: ['ativo'],
+  GaleriaModelo: ['ativo'],
+  Agendamento: ['confirmadoAutomaticamente'],
+  ConfiguracoesNegocio: ['exigeSinal'],
+  Notificacao: ['lida'],
+}
+for (const [table, fields] of Object.entries(booleanFields)) {
+  for (const row of rows[table]) {
+    for (const field of fields) {
+      const value = row[field]
+      if (value === 0 || value === '0') row[field] = false
+      else if (value === 1 || value === '1') row[field] = true
+    }
+  }
+}
 const dateFields = new Set(['criadoEm', 'atualizadoEm', 'sinalExpiraEm', 'enviadoEm', 'avaliadoEm'])
 for (const tableRows of Object.values(rows)) {
   for (const row of tableRows) {
