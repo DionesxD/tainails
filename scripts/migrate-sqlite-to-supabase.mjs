@@ -46,8 +46,11 @@ const migratedImages = []
 
 function localUploadFilename(reference) {
   if (typeof reference !== 'string' || !reference.startsWith('/uploads/')) return null
-  const filename = path.basename(decodeURIComponent(reference.slice('/uploads/'.length)))
-  if (!filename || filename === '.' || filename === '..') throw new Error('Caminho de upload local inválido no banco.')
+  const relativePath = decodeURIComponent(reference.slice('/uploads/'.length)).replace(/\\/g, '/')
+  const filename = path.posix.normalize(relativePath)
+  if (!filename || filename === '.' || filename === '..' || filename.startsWith('../') || filename.startsWith('/')) {
+    throw new Error('Caminho de upload local inválido no banco.')
+  }
   return filename
 }
 
@@ -158,4 +161,5 @@ try {
 } finally {
   await db.$disconnect()
 }
+
 
