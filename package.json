@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "prisma generate && next dev -p 3000",
+    "dev": "next dev -p 3000",
     "build": "prisma generate --schema prisma/schema.postgres.prisma && next build --webpack",
     "start": "next start",
     "postinstall": "prisma generate",
@@ -15,8 +15,7 @@
     "db:migrate:postgres": "prisma migrate deploy --schema prisma/schema.postgres.prisma",
     "db:import:sqlite": "node scripts/migrate-sqlite-to-supabase.mjs",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:reset": "prisma migrate reset"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
@@ -62,8 +61,7 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.0.2",
-    "zustand": "^5.0.6",
-    "tsx": "^4.23.15"
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
