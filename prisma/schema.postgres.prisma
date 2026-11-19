@@ -193,6 +193,8 @@ model TransacaoCaixa {
   manicureId    String
   agendamentoId String?
   valor         Float
+  tipo          String   @default("ganho")
+  categoria     String?
   formaPagamento String
   data          String
   observacao    String?

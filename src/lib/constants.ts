@@ -40,6 +40,30 @@ export const FORMA_PAGAMENTO_LABELS: Record<FormaPagamento, string> = {
   outro: 'Outro',
 }
 
+// Caixa — tipos de transação e categorias de gasto
+export const TIPO_TRANSACAO = {
+  ganho: 'ganho',
+  gasto: 'gasto',
+} as const
+export type TipoTransacao = keyof typeof TIPO_TRANSACAO
+
+export const CATEGORIA_GASTO = {
+  equipamento: 'equipamento',
+  produto: 'produto',
+  locomoção: 'locomoção',
+  aluguel: 'aluguel',
+  outro: 'outro',
+} as const
+export type CategoriaGasto = keyof typeof CATEGORIA_GASTO
+
+export const CATEGORIA_GASTO_LABELS: Record<CategoriaGasto, string> = {
+  equipamento: 'Equipamento',
+  produto: 'Produto',
+  locomoção: 'Locomoção',
+  aluguel: 'Aluguel',
+  outro: 'Outro',
+}
+
 export const TIPO_NOTIFICACAO = {
   agendamento_confirmado: 'agendamento_confirmado',
   agendamento_recusado: 'agendamento_recusado',

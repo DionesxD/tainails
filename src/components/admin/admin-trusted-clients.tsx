@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AvatarBubble } from '@/components/avatar-bubble'
-import { KeyRound, Search, Star } from 'lucide-react'
+import { KeyRound, Mail, Search, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -24,6 +24,7 @@ interface Cliente {
 export function AdminTrustedClients() {
   const qc = useQueryClient()
   const [clienteSenha, setClienteSenha] = useState<Cliente | null>(null)
+  const [clienteEmail, setClienteEmail] = useState<Cliente | null>(null)
   const [novaSenha, setNovaSenha] = useState('')
   const [busca, setBusca] = useState('')
 
@@ -86,6 +87,25 @@ export function AdminTrustedClients() {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  const salvarEmail = useMutation({
+    mutationFn: async (email: string) => {
+      const res = await fetch(`/api/clientes/${clienteEmail!.id}/email`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error)
+      return d
+    },
+    onSuccess: (d) => {
+      qc.invalidateQueries({ queryKey: ['clientes'] })
+      toast.success(d.user.email ? 'E-mail atualizado!' : 'E-mail removido.')
+      setClienteEmail(null)
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
   return (
     <div className="p-4 space-y-5">
       <div>
@@ -122,7 +142,17 @@ export function AdminTrustedClients() {
                     <span className="truncate">{c.nome}</span>
                     {!c.jaAgendou && <span className="shrink-0 rounded-full border border-border bg-muted/60 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">1º pendente</span>}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">{c.telefone || c.email || '—'}</p>
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    <p className="truncate">{c.telefone || '— sem telefone'}</p>
+                    <button
+                      onClick={() => setClienteEmail(c)}
+                      className="flex items-center gap-1 w-full text-left hover:text-foreground transition-colors"
+                      title="Editar e-mail da cliente"
+                    >
+                      <Mail className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{c.email || '— sem e-mail (toque para adicionar)'}</span>
+                    </button>
+                  </div>
                 </div>
                 <Button
                   type="button"
@@ -179,6 +209,38 @@ export function AdminTrustedClients() {
               disabled={novaSenha.length < 8 || redefinirSenha.isPending}
             >
               {redefinirSenha.isPending ? 'Salvando...' : 'Salvar nova senha'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!clienteEmail} onOpenChange={(open) => { if (!open) setClienteEmail(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>E-mail de {clienteEmail?.nome}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Corrija erros de digitação do cadastro. Deixe vazio para remover o e-mail — a cliente continuará
+            acessando pelo telefone.
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="email-cliente">E-mail</Label>
+            <Input
+              id="email-cliente"
+              type="email"
+              value={clienteEmail?.email ?? ''}
+              onChange={(e) => setClienteEmail((c) => (c ? { ...c, email: e.target.value } : c))}
+              placeholder="cliente@exemplo.com"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setClienteEmail(null)}>Cancelar</Button>
+            <Button
+              type="button"
+              onClick={() => clienteEmail && salvarEmail.mutate(clienteEmail.email ?? '')}
+              disabled={salvarEmail.isPending}
+            >
+              {salvarEmail.isPending ? 'Salvando...' : 'Salvar'}
             </Button>
           </DialogFooter>
         </DialogContent>

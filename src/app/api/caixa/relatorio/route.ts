@@ -14,9 +14,11 @@ export async function GET() {
   try {
     const transacoes = await db.transacaoCaixa.findMany({
       where: { manicureId: user.id },
-      orderBy: { data: 'desc' },
+      orderBy: [{ data: 'desc' }, { criadoEm: 'desc' }],
       include: {
-        agendamento: { select: { servico: { select: { nome: true } } } },
+        agendamento: {
+          select: { servico: { select: { nome: true } }, cliente: { select: { nome: true } } },
+        },
       },
       take: 1000,
     })

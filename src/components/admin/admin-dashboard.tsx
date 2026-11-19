@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CalendarClock, Check, X, CheckCircle2, Star, Clock } from 'lucide-react'
+import { CalendarClock, Check, X, CheckCircle2, Star, Clock, Plus, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { hapticSuccess, confetti } from '@/lib/feedback'
 import { hojeStr, addDias, parseData, formatDataCurta, esmalteStyle } from '@/lib/format'
@@ -19,6 +19,19 @@ import { FORMA_PAGAMENTO, FORMA_PAGAMENTO_LABELS, type FormaPagamento } from '@/
 import type { StatusAgendamento } from '@/lib/constants'
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+interface ClienteLeve {
+  id: string
+  nome: string
+  telefone: string | null
+  email: string | null
+}
+
+interface ServicoLeve {
+  id: string
+  nome: string
+  duracaoMinutos: number
+}
 
 interface Agendamento {
   id: string
@@ -36,6 +49,7 @@ export function AdminDashboard() {
   const hoje = hojeStr()
   const [diaSel, setDiaSel] = useState(hoje)
   const [concluirAg, setConcluirAg] = useState<Agendamento | null>(null)
+  const [manualOpen, setManualOpen] = useState(false)
   const dias = Array.from({ length: 7 }, (_, i) => (i === 0 ? hoje : addDias(hoje, i)))
 
   const { data: agendamentos, isLoading } = useQuery<Agendamento[]>({
@@ -72,9 +86,14 @@ export function AdminDashboard() {
 
   return (
     <div className="p-4 space-y-5">
-      <div>
-        <h1 className="text-xl font-serif font-bold">Agenda</h1>
-        <p className="text-sm text-muted-foreground">Visão geral dos atendimentos</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-serif font-bold">Agenda</h1>
+          <p className="text-sm text-muted-foreground">Visão geral dos atendimentos</p>
+        </div>
+        <Button size="sm" onClick={() => setManualOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Agendar
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -186,7 +205,225 @@ export function AdminDashboard() {
       </div>
 
       <ConcluirDialog agendamento={concluirAg} onClose={() => setConcluirAg(null)} />
+      <AgendamentoManualDialog
+        open={manualOpen}
+        onClose={() => setManualOpen(false)}
+        dataInicial={diaSel}
+      />
     </div>
+  )
+}
+
+// Agendamento manual — para quem agenda por telefone ou pessoalmente.
+// Escolhe cliente cadastrada (ou cria nova), data, hora e serviço.
+function AgendamentoManualDialog({
+  open,
+  onClose,
+  dataInicial,
+}: {
+  open: boolean
+  onClose: () => void
+  dataInicial: string
+}) {
+  const qc = useQueryClient()
+  const [modo, setModo] = useState<'existente' | 'nova'>('existente')
+  const [clienteId, setClienteId] = useState('')
+  const [novaNome, setNovaNome] = useState('')
+  const [novaTelefone, setNovaTelefone] = useState('')
+  const [novaEmail, setNovaEmail] = useState('')
+  const [servicoId, setServicoId] = useState('')
+  const [data, setData] = useState(dataInicial)
+  const [hora, setHora] = useState('09:00')
+  const [obs, setObs] = useState('')
+  const [senhaGerada, setSenhaGerada] = useState<string | null>(null)
+
+  const { data: clientes } = useQuery<ClienteLeve[]>({
+    queryKey: ['clientes'],
+    queryFn: async () => {
+      const res = await fetch('/api/clientes', { credentials: 'include' })
+      const j = await res.json()
+      return j.clientes ?? []
+    },
+    enabled: open,
+  })
+
+  const { data: servicos } = useQuery<ServicoLeve[]>({
+    queryKey: ['servicos'],
+    queryFn: async () => {
+      const res = await fetch('/api/servicos', { credentials: 'include' })
+      const j = await res.json()
+      return j.servicos ?? []
+    },
+    enabled: open,
+  })
+
+  const servicoSel = servicos?.find((s) => s.id === servicoId)
+
+  const criar = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/agendamentos/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(modo === 'existente' ? { clienteId } : { novaCliente: { nome: novaNome, telefone: novaTelefone, email: novaEmail } }),
+          servicoId,
+          data,
+          horaInicio: hora,
+          observacoes: obs || undefined,
+        }),
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error)
+      return d
+    },
+    onSuccess: (d) => {
+      qc.invalidateQueries({ queryKey: ['agendamentos'] })
+      qc.invalidateQueries({ queryKey: ['clientes'] })
+      qc.invalidateQueries({ queryKey: ['horarios'] })
+      hapticSuccess()
+      toast.success('Agendamento manual criado!')
+      if (d.senhaTemporaria) {
+        setSenhaGerada(d.senhaTemporaria)
+      } else {
+        onClose()
+      }
+      setNovaNome(''); setNovaTelefone(''); setNovaEmail(''); setObs('')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const valido =
+    servicoId &&
+    (modo === 'existente' ? clienteId : novaNome.trim() && (novaTelefone.trim() || novaEmail.trim()))
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5 text-primary" /> Agendamento manual
+          </DialogTitle>
+        </DialogHeader>
+
+        {senhaGerada ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Cliente criada e agendamento confirmado! Compartilhe a senha temporária com a cliente — ela
+              poderá trocá-la depois no perfil:
+            </p>
+            <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 text-center">
+              <p className="text-xs text-muted-foreground">Senha temporária</p>
+              <p className="text-xl font-mono font-bold tracking-wider">{senhaGerada}</p>
+            </div>
+            <DialogFooter>
+              <Button onClick={onClose}>Entendi</Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setModo('existente')}
+                className={`py-2.5 rounded-xl border text-sm font-medium transition-all ${modo === 'existente' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}
+              >
+                Cliente cadastrada
+              </button>
+              <button
+                onClick={() => setModo('nova')}
+                className={`py-2.5 rounded-xl border text-sm font-medium transition-all ${modo === 'nova' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}
+              >
+                Nova cliente
+              </button>
+            </div>
+
+            {modo === 'existente' ? (
+              <div className="space-y-2">
+                <Label>Cliente</Label>
+                <Select value={clienteId} onValueChange={setClienteId}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a cliente" /></SelectTrigger>
+                  <SelectContent>
+                    {(clientes ?? []).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.nome}{c.telefone ? ` · ${c.telefone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="m-nome">Nome</Label>
+                  <Input id="m-nome" value={novaNome} onChange={(e) => setNovaNome(e.target.value)} placeholder="Nome da cliente" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="m-tel">Telefone (WhatsApp)</Label>
+                    <Input id="m-tel" value={novaTelefone} onChange={(e) => setNovaTelefone(e.target.value)} placeholder="(11) 99999-9999" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="m-email">E-mail (opcional)</Label>
+                    <Input id="m-email" type="email" value={novaEmail} onChange={(e) => setNovaEmail(e.target.value)} placeholder="cliente@exemplo.com" />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  A cliente recebe uma senha temporária para acessar a plataforma.
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Serviço</Label>
+              <Select value={servicoId} onValueChange={setServicoId}>
+                <SelectTrigger><SelectValue placeholder="Selecione o serviço" /></SelectTrigger>
+                <SelectContent>
+                  {(servicos ?? []).map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.nome} · {s.duracaoMinutos} min
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="m-data">Data</Label>
+                <Input id="m-data" type="date" value={data} onChange={(e) => setData(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="m-hora">Hora de início</Label>
+                <Input id="m-hora" type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
+              </div>
+            </div>
+            {servicoSel && (
+              <p className="text-xs text-muted-foreground -mt-2">
+                Duração do serviço: {servicoSel.duracaoMinutos} min — termina às{' '}
+                {(() => {
+                  const [h, m] = hora.split(':').map(Number)
+                  const total = h * 60 + m + servicoSel.duracaoMinutos
+                  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+                })()}
+              </p>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="m-obs">Observações (opcional)</Label>
+              <Input id="m-obs" value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Ex: agendado por telefone" />
+            </div>
+          </div>
+        )}
+
+        {!senhaGerada && (
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button onClick={() => criar.mutate()} disabled={!valido || criar.isPending}>
+              {criar.isPending ? 'Criando...' : 'Criar agendamento'}
+            </Button>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
 

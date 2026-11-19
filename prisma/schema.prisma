@@ -200,6 +200,8 @@ model TransacaoCaixa {
   manicureId    String
   agendamentoId String?
   valor         Float
+  tipo          String   @default("ganho") // 'ganho' | 'gasto'
+  categoria     String?  // gasto: equipamento|produto|locomocao|aluguel|outro — ganho extra: descricao livre no observacao
   formaPagamento String  // pix|dinheiro|cartao_debito|cartao_credito|outro
   data          String   // YYYY-MM-DD
   observacao    String?

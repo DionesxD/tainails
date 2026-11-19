@@ -124,11 +124,68 @@ async function main() {
     }
   }
 
+  // Agendamentos demo — sem eles a aba Clientes ficava vazia,
+  // pois a listagem antiga exigia agendamento prévio.
+  await seedAgendamentos(manicure.id, cliente.id)
+
+  // Transações demo no caixa — um gasto e um ganho extra, para o
+  // resumo financeiro (ganhos/gastos/saldo) fazer sentido no demo.
+  await db.transacaoCaixa.createMany({
+    data: [
+      {
+        manicureId: manicure.id,
+        valor: 45.0,
+        tipo: 'gasto',
+        categoria: 'equipamento',
+        formaPagamento: 'pix',
+        data: new Date().toISOString().split('T')[0],
+        observacao: 'Kit de brocas e lixas',
+      },
+      {
+        manicureId: manicure.id,
+        valor: 25.0,
+        tipo: 'ganho',
+        formaPagamento: 'dinheiro',
+        data: new Date().toISOString().split('T')[0],
+        observacao: 'Remoção de esmalte extra',
+      },
+    ],
+  })
+
   console.log('✅ Seed completo!')
   console.log('   Manicure:', manicure.email)
   console.log('   Cliente:', cliente.email)
   console.log('   Cliente confiança:', clienteConfianca.email)
   console.log('   Senha: 123456')
+}
+
+async function seedAgendamentos(manicureId: string, clienteId: string) {
+  const servico = await db.servico.findFirst({ where: { manicureId } })
+  if (!servico) return
+  const hoje = new Date()
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  const data = `${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate() + 1)}`
+  const horario = await db.horarioDisponivel.findFirst({
+    where: { manicureId, data, status: 'livre' },
+  })
+  if (!horario) return
+  const existente = await db.agendamento.findFirst({
+    where: { clienteId, manicureId },
+  })
+  if (existente) return
+  await db.agendamento.create({
+    data: {
+      clienteId,
+      manicureId,
+      horarioId: horario.id,
+      servicoId: servico.id,
+      status: 'confirmado',
+    },
+  })
+  await db.horarioDisponivel.update({
+    where: { id: horario.id },
+    data: { status: 'reservado' },
+  })
 }
 
 main()
